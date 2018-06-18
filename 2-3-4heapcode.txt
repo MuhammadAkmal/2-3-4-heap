@@ -1,0 +1,417 @@
+#include "stdafx.h"
+#include <iostream>
+#include <stdlib.h>
+
+using namespace std;
+
+const int MAX = 4;
+const int MIN = 2;
+struct heapnode
+{
+	int count;
+	int value[MAX + 1];
+	heapnode *child[MAX + 1];
+};
+class heap
+{
+private:
+	heapnode *root;
+public:
+	heap();
+	//decalring functions
+	void insert(int val);
+	int setval(int val, heapnode *n, int *p, heapnode **c);
+	static heapnode * search(int val, heapnode *root, int *pos);
+	static int searchnode(int val, heapnode *n, int *pos);
+	void fillnode(int val, heapnode *c, heapnode *n, int k);
+	void split(int val, heapnode *c, heapnode *n,
+		int k, int *y, heapnode **newnode);
+	void del(int val);
+	int delhelp(int val, heapnode *root);
+	void clear(heapnode *root, int k);
+	void copysucc(heapnode *root, int i);
+	void restore(heapnode *root, int i);
+	void rightshift(int k);
+	void leftshift(int k);
+	void merge(int k);
+	void show();
+	static void display(heapnode *root);
+	static void deltree(heapnode *root);
+	~heap();
+};
+
+heap::heap()
+{
+	root = NULL;
+}
+// insert the node
+void heap::insert(int val)
+{
+	int i;
+	heapnode *c, *n;
+	int flag;
+	flag = setval(val, root, &i, &c);
+	if (flag)
+	{
+		n = new heapnode;
+		n->count = 1;
+		n->value[1] = i;
+		n->child[0] = root;
+		n->child[1] = c;
+		root = n;
+	}
+}
+// before insertinf the node set the appropraite place 
+int heap::setval(int val, heapnode *n, int *p, heapnode **c)
+{
+	int k;
+	if (n == NULL)
+	{
+		*p = val;
+		*c = NULL;
+		return 1;
+	}
+	else
+	{
+		if (searchnode(val, n, &k))
+			cout << endl << "Key value already exists." << endl;
+		if (setval(val, n->child[k], p, c))
+		{
+			if (n->count < MAX)
+			{
+				fillnode(*p, *c, n, k);
+				return 0;
+			}
+			else
+			{
+				split(*p, *c, n, k, p, c);
+				return 1;
+			}
+		}
+		return 0;
+	}
+}
+// to search the node 
+heapnode * heap::search(int val, heapnode *root, int *pos)
+{
+	if (root == NULL)
+		return NULL;
+	else
+	{
+		if (searchnode(val, root, pos))
+			return root;
+		else
+			return search(val, root->child[*pos], pos);
+	}
+}
+int heap::searchnode(int val, heapnode *n, int *pos)
+{
+	if (val < n->value[1])
+	{
+		*pos = 0;
+		return 0;
+	}
+	else
+	{
+		*pos = n->count;
+		while ((val < n->value[*pos]) && *pos > 1)
+			(*pos)--;
+		if (val == n->value[*pos])
+			return 1;
+		else
+			return 0;
+	}
+}
+// it fill the node if there is space 
+void heap::fillnode(int val, heapnode *c, heapnode *n, int k)
+{
+	int i;
+	for (i = n->count; i > k; i--)
+	{
+		n->value[i + 1] = n->value[i];
+		n->child[i + 1] = n->child[i];
+	}
+	n->value[k + 1] = val;
+	n->child[k + 1] = c;
+	n->count++;
+}
+//split the node if node is overflow 
+void heap::split(int val, heapnode *c, heapnode *n,
+	int k, int *y, heapnode **newnode)
+{
+	int i, mid;
+
+	if (k <= MIN)
+		mid = MIN;
+	else
+		mid = MIN + 1;
+
+	*newnode = new heapnode;
+
+	for (i = mid + 1; i <= MAX; i++)
+	{
+		(*newnode)->value[i - mid] = n->value[i];
+		(*newnode)->child[i - mid] = n->child[i];
+	}
+
+	(*newnode)->count = MAX - mid;
+	n->count = mid;
+
+	if (k <= MIN)
+		fillnode(val, c, n, k);
+	else
+		fillnode(val, c, *newnode, k - mid);
+
+	*y = n->value[n->count];
+	(*newnode)->child[0] = n->child[n->count];
+	n->count--;
+}
+// delete the node 
+void heap::del(int val)
+{
+	heapnode * temp;
+
+	if (!delhelp(val, root))
+		cout << endl << "Value " << val << " not found.";
+	else
+	{
+		if (root->count == 0)
+		{
+			temp = root;
+			root = root->child[0];
+			delete temp;
+		}
+	}
+}
+// check if node to delete is present or not 
+int heap::delhelp(int val, heapnode *root)
+{
+	int i;
+	int flag;
+
+	if (root == NULL)
+		return 0;
+	else
+	{
+		flag = searchnode(val, root, &i);
+		if (flag)
+		{
+			if (root->child[i - 1])
+			{
+				copysucc(root, i);
+				flag = delhelp(root->value[i], root->child[i]);
+				if (!flag)
+					cout << endl << "Value " << val << " not found.";
+			}
+			else
+				clear(root, i);
+		}
+		else
+			flag = delhelp(val, root->child[i]);
+		if (root->child[i] != NULL)
+		{
+			if (root->child[i]->count < MIN)
+				restore(root, i);
+		}
+		return flag;
+	}
+}
+void heap::clear(heapnode *root, int k)
+{
+	int i;
+	for (i = k + 1; i <= root->count; i++)
+	{
+		root->value[i - 1] = root->value[i];
+		root->child[i - 1] = root->child[i];
+	}
+	root->count--;
+}
+// copy the sucessor 
+void heap::copysucc(heapnode *root, int i)
+{
+	heapnode *temp = root->child[i];
+
+	while (temp->child[0])
+		temp = temp->child[0];
+
+	root->value[i] = temp->value[1];
+}
+// restore the  properties 
+void heap::restore(heapnode *root, int i)
+{
+	if (i == 0)
+	{
+		if (root->child[1]->count > MIN)
+			leftshift(1);
+		else
+			merge(1);
+	}
+	else
+	{
+		if (i == root->count)
+		{
+			if (root->child[i - 1]->count > MIN)
+				rightshift(i);
+			else
+				merge(i);
+		}
+		else
+		{
+			if (root->child[i - 1]->count > MIN)
+				rightshift(i);
+			else
+			{
+				if (root->child[i + 1]->count > MIN)
+					leftshift(i + 1);
+				else
+					merge(i);
+			}
+		}
+	}
+}
+// shift the node to the right side 
+void heap::rightshift(int k)
+{
+	int i;
+	heapnode *temp;
+
+	temp = root->child[k];
+
+	for (i = temp->count; i > 0; i--)
+	{
+		temp->value[i + 1] = temp->value[i];
+		temp->child[i + 1] = temp->child[i];
+	}
+
+	temp->child[1] = temp->child[0];
+	temp->count++;
+	temp->value[1] = root->value[k];
+	temp = root->child[k - 1];
+	root->value[k] = temp->value[temp->count];
+	root->child[k]->child[0] = temp->child[temp->count];
+	temp->count--;
+}
+// shift the node to the left side 
+void heap::leftshift(int k)
+{
+	heapnode *temp;
+
+	temp = root->child[k - 1];
+	temp->count++;
+	temp->value[temp->count] = root->value[k];
+	temp->child[temp->count] = root->child[k]->child[0];
+	temp = root->child[k];
+	root->value[k] = temp->value[1];
+	temp->child[0] = temp->child[1];
+	temp->count--;
+	for (int i = 1; i <= temp->count; i++)
+	{
+		temp->value[i] = temp->value[i + 1];
+		temp->child[i] = temp->child[i + 1];
+	}
+}
+// if left and right shift is not possible meger the nodes 
+void heap::merge(int k)
+{
+	heapnode *temp1, *temp2;
+	temp1 = root->child[k];
+	temp2 = root->child[k - 1];
+	temp2->count++;
+	temp2->value[temp2->count] = root->value[k];
+	temp2->child[temp2->count] = root->child[0];
+	for (int i = 1; i <= temp1->count; i++)
+	{
+		temp2->count++;
+		temp2->value[temp2->count] = temp1->value[i];
+		temp2->child[temp2->count] = temp1->child[i];
+	}
+	for (int i = k; i < root->count; i++)
+	{
+		root->value[i] = root->value[i + 1];
+		root->child[i] = root->child[i + 1];
+	}
+	root->count--;
+	delete temp1;
+}
+// display the all nodes 
+void heap::show()
+{
+	display(root);
+}
+void heap::display(heapnode *root)
+{
+	if (root != NULL)
+	{
+		for (int i = 0; i < root->count; i++)
+		{
+			display(root->child[i]);
+			cout << root->value[i + 1] << "\t";
+		}
+		
+	}
+}
+// delete the heap 
+void heap::deltree(heapnode *root)
+{
+	if (root != NULL)
+	{
+		for (int i = 0; i < root->count; i++)
+		{
+			deltree(root->child[i]);
+			delete (root->child[i]);
+		}
+		/*deltree(root->child[i]);
+		delete (root->child[i]);*/
+	}
+}
+
+heap :: ~heap()
+{
+	deltree(root);
+}
+
+void main()
+{
+	heap b;
+	int temp = 0,a=0,d=0;
+	
+	while (true) {
+		cout << "2-3-4 heap! \n \n 1.insert\n 2.delete\n 3.transverse\n 4.exit\n";
+		cin >> temp;
+		if (temp <= 0 || temp >= 4) {
+			break;
+		}
+		if(temp==1){
+			cout << "enter the number of items to insert:\n";
+			cin >> d;
+			if (d >= 5) {
+				cout << "\n maximum 4 entries allowed at once!\n\n";
+				d = 4;
+			}
+			for (int i = 0; i < d; i++) {
+				cout << "enter the value " << i + 1 << " to insert:\n";
+				cin >> a;
+				b.insert(a);
+			}
+				cout << "\t \t item inserted!\n\n";
+			continue;
+		}
+		if (temp == 2) {
+			cout << "enter the item to delete:\n";
+			cin >> a;
+			b.del(a);
+			cout << "\t \t item deleted!\n\n";
+			continue;
+		}
+		if (temp == 3) {
+			cout << "\n\n------------------------------------------------------------\n\n";
+			b.show();
+			cout << "\n\n------------------------------------------------------------\n\n";
+			continue;
+		}
+		if (temp == 4) {
+			break;
+		}
+	}
+	
+}
